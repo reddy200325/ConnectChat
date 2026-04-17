@@ -1,0 +1,38 @@
+<svg width="100%" height="100%" viewBox="0 0 1440 900" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Gradient Background -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a"></stop>
+      <stop offset="50%" stop-color="#1e3a8a"></stop>
+      <stop offset="100%" stop-color="#06b6d4"></stop>
+    </linearGradient>
+
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="60"></feGaussianBlur>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#bgGradient)"></rect>
+
+  <!-- Glow Blobs -->
+  <circle cx="300" cy="200" r="200" fill="#22c55e" opacity="0.25" filter="url(#blur)"></circle>
+  <circle cx="1200" cy="300" r="220" fill="#6366f1" opacity="0.25" filter="url(#blur)"></circle>
+  <circle cx="900" cy="700" r="200" fill="#06b6d4" opacity="0.25" filter="url(#blur)"></circle>
+
+  <!-- Wave Shape -->
+  <path d="M0 600 C 300 750 600 450 900 600 C 1200 750 1440 550 1440 550 L1440 900 L0 900 Z" fill="white" opacity="0.05"></path>
+
+  <!-- Tech Images -->
+  <image href="https://cdn-icons-png.flaticon.com/512/5968/5968292.png" x="200" y="120" width="120" opacity="0.9"></image>
+
+  <image href="https://cdn-icons-png.flaticon.com/512/5968/5968322.png" x="1100" y="140" width="120" opacity="0.9"></image>
+
+  <image href="https://cdn-icons-png.flaticon.com/512/919/919825.png" x="900" y="600" width="130" opacity="0.9"></image>
+
+  <!-- Floating Shapes -->
+  <rect x="500" y="200" width="80" height="80" rx="20" fill="white" opacity="0.08"></rect>
+  <rect x="700" y="500" width="100" height="100" rx="25" fill="white" opacity="0.08"></rect>
+  <circle cx="1000" cy="450" r="40" fill="white" opacity="0.1"></circle>
+
+</svg>
