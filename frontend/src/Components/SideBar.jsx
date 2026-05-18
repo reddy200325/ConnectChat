@@ -7,12 +7,13 @@ import { AuthContext } from "../../context/authContext";
 import { ChatContext } from "../../context/ChatContext";
 import default_logo from "../assets/photos/default_logo.png";
 import axios from "axios";
+import logo from "/sunochatlogo.png"
 
 const SideBar = () => {
   const {
     getUsers,
     user,
-    setUsers,
+    setUser,
     selectedUser,
     setSelectedUser,
     unseenMessages,
@@ -34,25 +35,29 @@ const SideBar = () => {
 
   const filteredUsers = input
     ? user.filter((u) =>
-        u.fullName.toLowerCase().includes(input.toLowerCase())
-      )
+      u.fullName.toLowerCase().includes(input.toLowerCase())
+    )
     : user;
 
   useEffect(() => {
-  const fetchUsers = async () => {
-    try {
-      const res = await axios.get(
-        `/api/auth/search?search=${input}`
-      );
+    const fetchUsers = async () => {
+      try {
+        const res = await axios.get(
+          `/api/auth/search?search=${input || ""}`
+        );
 
-      setUsers(res.data);
-    } catch (error) {
-      console.log(error);
-    }
-  };
+        const filtered = res.data.filter(
+          (u) => u._id !== authUser?._id
+        );
 
-  fetchUsers();
-}, [input, onlineUsers]);
+        setUser(filtered);
+      } catch (error) {
+        console.log(error);
+      }
+    };
+
+    fetchUsers();
+  }, [input]);
 
   useEffect(() => {
     if (isSelecting) setShowMenu(true);
@@ -78,25 +83,45 @@ const SideBar = () => {
 
   // ================= CLICK =================
   const handleUserClick = (u) => {
+
     if (isSelecting) {
+
       setDeleteUsers((prev) => {
-        const exists = prev.find((item) => item._id === u._id);
+        const exists = prev.find(
+          (item) => item._id === u._id
+        );
+
         return exists
           ? prev.filter((item) => item._id !== u._id)
           : [...prev, u];
       });
+
       return;
     }
 
     if (clickTimer.current) return;
 
     clickTimer.current = setTimeout(() => {
+
+      // MOVE USER TO TOP
+      setUser((prev) => {
+
+        const filtered = prev.filter(
+          (item) => item._id !== u._id
+        );
+
+        return [u, ...filtered];
+      });
+
       setSelectedUser(u);
+
       setUnseenMessages((prev) => ({
         ...prev,
         [u._id]: 0,
       }));
+
       clickTimer.current = null;
+
     }, 200);
   };
 
@@ -134,11 +159,11 @@ const SideBar = () => {
 
       await Promise.all(
         ids.map((id) =>
-           axios.delete(`/api/message/conversation/${id}`)
+          axios.delete(`/api/message/conversation/${id}`)
         )
       );
 
-      setUsers((prev) => prev.filter((u) => !ids.includes(u._id)));
+      setUser((prev) => prev.filter((u) => !ids.includes(u._id)));
 
       if (selectedUser && ids.includes(selectedUser._id)) {
         setSelectedUser(null);
@@ -160,16 +185,20 @@ const SideBar = () => {
 
   return (
     <div
-      className={`bg-[#8185B2]/10 h-full p-3 sm:p-5 rounded-r-xl overflow-y-auto text-white ${
-        selectedUser ? "max-md:hidden" : ""
-      }`}
+      className={`bg-[#8185B2]/10 h-full p-3 sm:p-5 rounded-r-xl overflow-y-auto text-white ${selectedUser ? "max-md:hidden" : ""
+        }`}
     >
       {/* HEADER */}
       <div className="pb-4 sm:pb-5">
         <div className="flex justify-between items-center">
-          <h3 className="flex items-center gap-2 text-sm sm:text-base truncate">
-            <SiRevoltdotchat className="logoIcon cursor-pointer" />
-            Reddy
+          <h3 className="flex items-center gap-2 text-sm sm:text-base font-semibold truncate">
+            <img
+              src={logo}
+              alt="logo"
+              className="w-8 h-8 object-contain rounded-full"
+            />
+
+            <span className="truncate">Suno Chat</span>
           </h3>
 
           <div className="relative py-2" ref={menuRef}>
@@ -249,7 +278,7 @@ const SideBar = () => {
 
       {/* USERS */}
       <div className="flex flex-col">
-        {user.map((u) => {
+        {filteredUsers.map((u) => {
           const isSelected = deleteUsers.some(
             (item) => item._id === u._id
           );
@@ -262,11 +291,10 @@ const SideBar = () => {
               onTouchStart={() => handleTouchStart(u)}
               onTouchEnd={handleTouchEnd}
               className={`relative flex items-center gap-3 p-2 rounded cursor-pointer
-              ${
-                selectedUser?._id === u._id
+              ${selectedUser?._id === u._id
                   ? "bg-[#282142]/50"
                   : ""
-              }
+                }
               ${isSelected ? "bg-red-500/20" : ""}`}
             >
               <img
