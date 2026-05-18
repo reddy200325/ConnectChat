@@ -3,21 +3,26 @@ import { generateToken } from "../lib/utils.js";
 import User from "../models/User.js";
 import bcrypt from "bcryptjs";
 
-
 // ---------------- SIGNUP CONTROLLER ----------------
-// Creates a new user account
 export const signup = async (req, res) => {
-  const { fullName, email, password, bio } = req.body;
-
   try {
+    let { fullName, email, password, bio } = req.body;
+
+    // Normalize email
+    email = email.trim().toLowerCase();
+
     // Validate required fields
     if (!fullName || !email || !password || !bio) {
-      return res.json({ success: false, message: "Missing Details" });
+      return res.json({
+        success: false,
+        message: "Missing Details",
+      });
     }
 
     // Check if user already exists
-    const user = await User.find();
-    if (user) {
+    const existingUser = await User.findOne({ email });
+
+    if (existingUser) {
       return res.json({
         success: false,
         message: "Account already exists",
@@ -36,30 +41,38 @@ export const signup = async (req, res) => {
       bio,
     });
 
-    // Generate authentication token
+    // Generate token
     const token = generateToken(newUser._id);
+
+    // Remove password before sending response
+    const userResponse = newUser.toObject();
+    delete userResponse.password;
 
     res.json({
       success: true,
-      userData: newUser,
+      userData: userResponse,
       token,
       message: "Account created successfully",
     });
 
   } catch (error) {
     console.log(error.message);
-    res.json({ success: false, message: error.message });
+
+    res.json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-
 // ---------------- LOGIN CONTROLLER ----------------
-// Authenticates an existing user
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
-    // Find user by email
+    email = email.trim().toLowerCase();
+
+    // Find user
     const userData = await User.findOne({ email });
 
     if (!userData) {
@@ -69,7 +82,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // Compare passwords
+    // Compare password
     const isPasswordCorrect = await bcrypt.compare(
       password,
       userData.password
@@ -82,25 +95,31 @@ export const login = async (req, res) => {
       });
     }
 
-    // Generate authentication token
+    // Generate token
     const token = generateToken(userData._id);
+
+    // Remove password before sending response
+    const userResponse = userData.toObject();
+    delete userResponse.password;
 
     res.json({
       success: true,
-      userData,
+      userData: userResponse,
       token,
-      message: "Login successfully",
+      message: "Login successful",
     });
 
   } catch (error) {
     console.log(error.message);
-    res.json({ success: false, message: error.message });
+
+    res.json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
-
 // ---------------- CHECK AUTH CONTROLLER ----------------
-// Verifies if user is authenticated
 export const checkAuth = (req, res) => {
   res.json({
     success: true,
@@ -108,27 +127,27 @@ export const checkAuth = (req, res) => {
   });
 };
 
-
 // ---------------- UPDATE PROFILE CONTROLLER ----------------
-// Updates profile details (name, bio, profile picture)
 export const updateProfile = async (req, res) => {
   try {
     const { profilePic, bio, fullName } = req.body;
+
     const userId = req.user._id;
 
     let updatedUser;
 
-    // If profile image is not provided
+    // Without image
     if (!profilePic) {
       updatedUser = await User.findByIdAndUpdate(
         userId,
-        { bio, fullName },
+        {
+          bio,
+          fullName,
+        },
         { new: true }
       );
-    } 
-    // If profile image exists
-    else {
-      // Upload image to Cloudinary
+    } else {
+      // Upload image to cloudinary
       const upload = await cloudinary.uploader.upload(profilePic);
 
       updatedUser = await User.findByIdAndUpdate(
@@ -149,6 +168,28 @@ export const updateProfile = async (req, res) => {
 
   } catch (error) {
     console.log(error.message);
-    res.json({ success: false, message: error.message });
+
+    res.json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+export const searchUsers = async (req, res) => {
+  try {
+    const search = req.query.search || "";
+
+    const users = await User.find({
+      fullName: {
+        $regex: search,
+        $options: "i",
+      },
+    });
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
   }
 };

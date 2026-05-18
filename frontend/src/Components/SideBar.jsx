@@ -39,8 +39,20 @@ const SideBar = () => {
     : user;
 
   useEffect(() => {
-    getUsers();
-  }, [onlineUsers]);
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(
+        `/api/auth/search?search=${input}`
+      );
+
+      setUsers(res.data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  fetchUsers();
+}, [input, onlineUsers]);
 
   useEffect(() => {
     if (isSelecting) setShowMenu(true);
@@ -237,7 +249,7 @@ const SideBar = () => {
 
       {/* USERS */}
       <div className="flex flex-col">
-        {filteredUsers.map((u) => {
+        {user.map((u) => {
           const isSelected = deleteUsers.some(
             (item) => item._id === u._id
           );

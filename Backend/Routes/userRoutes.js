@@ -4,6 +4,7 @@ import {
   login,
   signup,
   updateProfile,
+  searchUsers,
 } from "../controller/userController.js";
 
 import { protectRoute } from "../middleware/auth.js";
@@ -25,5 +26,6 @@ userRouter.put("/update-profile", protectRoute, updateProfile);
 
 // Check if user is authenticated
 userRouter.get("/check", protectRoute, checkAuth);
+userRouter.get("/search", searchUsers);
 
 export default userRouter;
