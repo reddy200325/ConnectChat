@@ -1,33 +1,43 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import { IoIosArrowBack } from "react-icons/io";
 import { BiHelpCircle } from "react-icons/bi";
 import { GrGallery } from "react-icons/gr";
 import { BsFillSendFill } from "react-icons/bs";
+
 import toast from "react-hot-toast";
 import axios from "axios";
 
 import default_logo from "../assets/photos/default_logo.png";
 import { formatMessageTime } from "../lib/utils";
+
 import { AuthContext } from "../../context/authContext";
 import { ChatContext } from "../../context/ChatContext";
 
 const ChatProcess = ({ setShowSidebar }) => {
-  const { messages, selectedUser, setSelectedUser, sendMessage, getMessages } =
-    useContext(ChatContext);
+  const {
+    messages,
+    selectedUser,
+    setSelectedUser,
+    sendMessage,
+    getMessages,
+  } = useContext(ChatContext);
 
   const { authUser, onlineUsers } = useContext(AuthContext);
 
   const scrollEnd = useRef(null);
-  const [input, setInput] = useState("");
 
-  // DELETE STATES
+  const [input, setInput] = useState("");
   const [deleteMode, setDeleteMode] = useState(false);
   const [selectedMsgs, setSelectedMsgs] = useState([]);
-
-  // FIX: stable timer reference
   const pressTimer = useRef(null);
 
-  // -------- SEND MESSAGE --------
+  // SEND TEXT
   const handleSendMessage = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -36,7 +46,7 @@ const ChatProcess = ({ setShowSidebar }) => {
     setInput("");
   };
 
-  // -------- SEND IMAGE --------
+  // SEND IMAGE
   const handleSendImage = async (e) => {
     const file = e.target.files[0];
 
@@ -46,6 +56,7 @@ const ChatProcess = ({ setShowSidebar }) => {
     }
 
     const reader = new FileReader();
+
     reader.onloadend = async () => {
       await sendMessage({ image: reader.result });
       e.target.value = "";
@@ -54,35 +65,29 @@ const ChatProcess = ({ setShowSidebar }) => {
     reader.readAsDataURL(file);
   };
 
-  // -------- LOAD MESSAGES --------
+  // LOAD MESSAGES
   useEffect(() => {
-    if (selectedUser) {
-      getMessages(selectedUser._id);
-    }
+    if (selectedUser) getMessages(selectedUser._id);
   }, [selectedUser]);
 
-  // -------- AUTO SCROLL --------
+  // AUTO SCROLL
   useEffect(() => {
     scrollEnd.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // AUTO EXIT DELETE MODE
+  // EXIT DELETE MODE
   useEffect(() => {
-    if (selectedMsgs.length === 0) {
-      setDeleteMode(false);
-    }
+    if (selectedMsgs.length === 0) setDeleteMode(false);
   }, [selectedMsgs]);
 
-  // -------- SELECT TOGGLE --------
   const toggleSelect = (id) => {
     setSelectedMsgs((prev) =>
       prev.includes(id)
-        ? prev.filter((msg) => msg !== id)
+        ? prev.filter((m) => m !== id)
         : [...prev, id]
     );
   };
 
-  // -------- LONG PRESS --------
   const handleLongPressStart = (id) => {
     pressTimer.current = setTimeout(() => {
       setDeleteMode(true);
@@ -94,15 +99,8 @@ const ChatProcess = ({ setShowSidebar }) => {
     clearTimeout(pressTimer.current);
   };
 
-  // -------- DOUBLE CLICK --------
-  const handleDoubleClick = (id) => {
-    setDeleteMode(true);
-    toggleSelect(id);
-  };
-
-  // -------- DELETE MESSAGE --------
   const handleDelete = async () => {
-    if (selectedMsgs.length === 0) return;
+    if (!selectedMsgs.length) return;
 
     try {
       await Promise.all(
@@ -120,164 +118,186 @@ const ChatProcess = ({ setShowSidebar }) => {
       setSelectedMsgs([]);
       setDeleteMode(false);
     } catch (err) {
-      console.error(err);
       toast.error("Failed to delete messages");
     }
   };
 
-  // -------- EMPTY SCREEN --------
+  // EMPTY STATE
   if (!selectedUser) {
     return (
-      <div className="hidden md:flex items-center justify-center h-full text-white">
-        <p className="text-lg">Select a chat to start messaging</p>
+      <div className="hidden md:flex flex-1 h-full items-center justify-center bg-[#08101d] text-white">
+        <div className="text-center">
+          <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-cyan-500/20 to-violet-500/20 flex items-center justify-center border border-white/10">
+            <BsFillSendFill className="text-3xl text-cyan-400" />
+          </div>
+
+          <h2 className="text-3xl font-bold">Suno Chat</h2>
+          <p className="text-gray-500 mt-3 text-lg">
+            Select a conversation to start chatting
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-[#1e2a5a] to-[#2c7da0]">
+    <div className="flex flex-col h-dvh md:h-full min-h-0 overflow-hidden bg-gradient-to-b from-[#08101d] via-[#0b1525] to-[#101827]">
 
       {/* HEADER */}
       {deleteMode ? (
-        <div className="flex items-center justify-between p-3 bg-red-500 text-white">
+        <div className="flex items-center justify-between px-4 py-3 bg-red-500/10 border-b border-red-500/20">
           <button
             onClick={() => {
               setDeleteMode(false);
               setSelectedMsgs([]);
             }}
+            className="text-white text-sm"
           >
             Cancel
           </button>
 
-          <p>{selectedMsgs.length} Selected</p>
+          <p className="font-semibold text-white">
+            {selectedMsgs.length} Selected
+          </p>
 
-          <button onClick={handleDelete}>
+          <button
+            onClick={handleDelete}
+            className="px-4 py-2 bg-red-500 hover:bg-red-600 rounded-xl text-sm text-white"
+          >
             Delete
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-3 p-3 border-b border-white/20">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5 bg-[#08101d]/80 backdrop-blur-2xl">
 
+          {/* BACK */}
+          <IoIosArrowBack
+            onClick={() => setSelectedUser(null)}
+            className="md:hidden text-white text-2xl cursor-pointer"
+          />
+
+          {/* USER */}
           <div
             onClick={() => setShowSidebar(true)}
             className="flex items-center gap-3 flex-1 cursor-pointer"
           >
             <img
               src={selectedUser.profilePic || default_logo}
-              className="w-9 h-9 rounded-full object-cover"
+              className="w-11 h-11 rounded-2xl object-cover border border-white/10"
             />
 
-            <p className="text-white text-lg flex items-center gap-2">
-              {selectedUser.fullName}
+            <div className="overflow-hidden">
+              <h2 className="text-white font-semibold truncate">
+                {selectedUser.fullName}
+              </h2>
 
-              {onlineUsers.includes(selectedUser._id) && (
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              )}
-            </p>
+              <p
+                className={`text-xs ${
+                  onlineUsers?.includes(selectedUser._id)
+                    ? "text-green-400"
+                    : "text-gray-500"
+                }`}
+              >
+                {onlineUsers?.includes(selectedUser._id)
+                  ? "Active now"
+                  : "Offline"}
+              </p>
+            </div>
           </div>
 
-          <IoIosArrowBack
-            onClick={() => setSelectedUser(null)}
-            className="md:hidden text-white text-2xl cursor-pointer"
-          />
-
-          <BiHelpCircle className="hidden md:block text-white text-xl" />
+          <BiHelpCircle className="hidden md:block text-2xl text-white/80" />
         </div>
       )}
 
       {/* MESSAGES */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 sm:px-5 py-4 space-y-4 scrollbar-thin scrollbar-thumb-white/5">
 
-        {messages.map((msg) => (
-          <div
-            key={msg._id}
-            onMouseDown={() => handleLongPressStart(msg._id)}
-            onMouseUp={handleLongPressEnd}
-            onMouseLeave={handleLongPressEnd}
-            onDoubleClick={() => handleDoubleClick(msg._id)}
-            onTouchStart={() => handleLongPressStart(msg._id)}
-            onTouchEnd={handleLongPressEnd}
-            onClick={() => deleteMode && toggleSelect(msg._id)}
-            className={`flex items-end gap-2 ${
-              msg.senderId === authUser._id
-                ? "justify-end"
-                : "justify-start"
-            } ${
-              selectedMsgs.includes(msg._id)
-                ? "bg-red-300/20 rounded-lg"
-                : ""
-            }`}
-          >
+        {messages.map((msg) => {
+          const isMe =
+            msg.senderId === authUser._id ||
+            msg.senderId?._id === authUser._id;
 
-            {!msg.image && (
-              <p className={`px-3 py-2 max-w-[70%] text-sm text-white rounded-lg break-words ${
-                msg.senderId === authUser._id
-                  ? "bg-violet-500/40 rounded-br-none"
-                  : "bg-gray-600 rounded-bl-none"
-              }`}>
-                {msg.text}
-              </p>
-            )}
+          return (
+            <div
+              key={msg._id}
+              className={`flex items-end gap-2 ${
+                isMe ? "justify-end" : "justify-start"
+              }`}
+              onMouseDown={() => handleLongPressStart(msg._id)}
+              onMouseUp={handleLongPressEnd}
+              onMouseLeave={handleLongPressEnd}
+              onTouchStart={() => handleLongPressStart(msg._id)}
+              onTouchEnd={handleLongPressEnd}
+              onClick={() => deleteMode && toggleSelect(msg._id)}
+            >
+              {/* TEXT */}
+              <div className="max-w-[85%] sm:max-w-[72%]">
+                {msg.text && (
+                  <div
+                    className={`px-4 py-3 text-sm sm:text-[15px] rounded-3xl break-words ${
+                      isMe
+                        ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white"
+                        : "bg-white/5 text-white"
+                    }`}
+                  >
+                    {msg.text}
+                  </div>
+                )}
 
-            {msg.image && (
-              <img
-                src={msg.image}
-                className="max-w-[200px] rounded-lg border border-gray-500"
-              />
-            )}
+                {/* IMAGE */}
+                {msg.image && (
+                  <img
+                    src={msg.image}
+                    className="max-w-[260px] sm:max-w-[320px] rounded-3xl mt-1"
+                  />
+                )}
 
-            <div className="text-center text-xs">
-              <img
-                src={
-                  msg.senderId === authUser._id
-                    ? authUser?.profilePic
-                    : selectedUser?.profilePic
-                }
-                className="w-7 h-7 rounded-full object-cover"
-              />
-              <p className="text-gray-300 text-[10px]">
-                {formatMessageTime(msg.createdAt)}
-              </p>
+                {/* TIME */}
+                <p className="text-[10px] text-gray-500 mt-1">
+                  {formatMessageTime(msg.createdAt)}
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
-        <div ref={scrollEnd}></div>
+        <div ref={scrollEnd} />
       </div>
 
       {/* INPUT */}
-      <div className="p-3">
-        <div className="flex items-center bg-white/10 rounded-full px-3">
+      <div className="shrink-0 px-3 sm:px-5 py-3 border-t border-white/5 bg-[#08101d]/90">
+
+        <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl">
 
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) =>
-              e.key === "Enter" ? handleSendMessage(e) : null
+              e.key === "Enter" && handleSendMessage(e)
             }
-            placeholder="Send a Message"
-            className="flex-1 bg-transparent text-white p-3 outline-none"
+            placeholder="Type message..."
+            className="flex-1 bg-transparent outline-none text-white"
           />
 
           <input
-            onChange={handleSendImage}
             type="file"
             id="image"
-            accept="image/png,image/jpeg"
             hidden
+            onChange={handleSendImage}
           />
 
           <label htmlFor="image">
-            <GrGallery className="text-white cursor-pointer mr-2" />
+            <GrGallery className="text-gray-300 cursor-pointer" />
           </label>
 
-          <BsFillSendFill
+          <button
             onClick={handleSendMessage}
-            className="text-white cursor-pointer"
-          />
+            className="w-10 h-10 rounded-xl bg-gradient-to-r from-cyan-500 to-violet-600 flex items-center justify-center"
+          >
+            <BsFillSendFill className="text-white text-sm" />
+          </button>
         </div>
       </div>
-
     </div>
   );
 };

@@ -1,17 +1,25 @@
-import React, { useContext, useEffect, useRef, useState } from "react";
+import React, {
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
+
 import { CiMenuKebab } from "react-icons/ci";
-import { FcSearch } from "react-icons/fc";
-import { SiRevoltdotchat } from "react-icons/si";
+import { IoSearch } from "react-icons/io5";
+
 import { AuthContext } from "../../context/authContext";
 import { ChatContext } from "../../context/ChatContext";
+
 import default_logo from "../assets/photos/default_logo.png";
+
 import axios from "axios";
-import logo from "/sunochatlogo.png"
+import logo from "/sunochatlogo.png";
 
 const SideBar = () => {
   const {
-    getUsers,
     user,
     setUser,
     selectedUser,
@@ -20,7 +28,9 @@ const SideBar = () => {
     setUnseenMessages,
   } = useContext(ChatContext);
 
-  const { authUser, logout, onlineUsers } = useContext(AuthContext);
+  const { authUser, logout, onlineUsers } =
+    useContext(AuthContext);
+
   const navigate = useNavigate();
 
   const [input, setInput] = useState("");
@@ -33,12 +43,6 @@ const SideBar = () => {
   const pressTimer = useRef(null);
   const clickTimer = useRef(null);
 
-  const filteredUsers = input
-    ? user.filter((u) =>
-      u.fullName.toLowerCase().includes(input.toLowerCase())
-    )
-    : user;
-
   useEffect(() => {
     const fetchUsers = async () => {
       try {
@@ -50,14 +54,31 @@ const SideBar = () => {
           (u) => u._id !== authUser?._id
         );
 
-        setUser(filtered);
+        const sorted = [...filtered].sort((a, b) => {
+          const aUnread = unseenMessages[a._id] || 0;
+          const bUnread = unseenMessages[b._id] || 0;
+
+          return bUnread - aUnread;
+        });
+
+        setUser(sorted);
       } catch (error) {
         console.log(error);
       }
     };
 
-    fetchUsers();
-  }, [input]);
+    if (authUser) {
+      fetchUsers();
+    }
+  }, [input, authUser, unseenMessages]);
+
+  const filteredUsers = input
+    ? user.filter((u) =>
+        u.fullName
+          .toLowerCase()
+          .includes(input.toLowerCase())
+      )
+    : user;
 
   useEffect(() => {
     if (isSelecting) setShowMenu(true);
@@ -72,27 +93,39 @@ const SideBar = () => {
 
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        if (!isSelecting) setShowMenu(false);
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target)
+      ) {
+        if (!isSelecting) {
+          setShowMenu(false);
+        }
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener(
+      "mousedown",
+      handleClickOutside
+    );
+
+    return () =>
+      document.removeEventListener(
+        "mousedown",
+        handleClickOutside
+      );
   }, [isSelecting]);
 
-  // ================= CLICK =================
   const handleUserClick = (u) => {
-
     if (isSelecting) {
-
       setDeleteUsers((prev) => {
         const exists = prev.find(
           (item) => item._id === u._id
         );
 
         return exists
-          ? prev.filter((item) => item._id !== u._id)
+          ? prev.filter(
+              (item) => item._id !== u._id
+            )
           : [...prev, u];
       });
 
@@ -102,10 +135,7 @@ const SideBar = () => {
     if (clickTimer.current) return;
 
     clickTimer.current = setTimeout(() => {
-
-      // MOVE USER TO TOP
       setUser((prev) => {
-
         const filtered = prev.filter(
           (item) => item._id !== u._id
         );
@@ -121,11 +151,9 @@ const SideBar = () => {
       }));
 
       clickTimer.current = null;
-
     }, 200);
   };
 
-  // ================= DOUBLE CLICK =================
   const handleDoubleClick = (u, e) => {
     e.preventDefault();
 
@@ -138,7 +166,6 @@ const SideBar = () => {
     setIsSelecting(true);
   };
 
-  // ================= LONG PRESS =================
   const handleTouchStart = (u) => {
     pressTimer.current = setTimeout(() => {
       setDeleteUsers([u]);
@@ -150,28 +177,34 @@ const SideBar = () => {
     clearTimeout(pressTimer.current);
   };
 
-  // ================= DELETE CHAT (FIXED) =================
   const handleDelete = async () => {
     try {
       const ids = deleteUsers.map((u) => u._id);
 
-      console.log("Deleting chats with:", ids);
-
       await Promise.all(
         ids.map((id) =>
-          axios.delete(`/api/message/conversation/${id}`)
+          axios.delete(
+            `/api/message/conversation/${id}`
+          )
         )
       );
 
-      setUser((prev) => prev.filter((u) => !ids.includes(u._id)));
+      setUser((prev) =>
+        prev.filter((u) => !ids.includes(u._id))
+      );
 
-      if (selectedUser && ids.includes(selectedUser._id)) {
+      if (
+        selectedUser &&
+        ids.includes(selectedUser._id)
+      ) {
         setSelectedUser(null);
       }
 
       setUnseenMessages((prev) => {
         const updated = { ...prev };
+
         ids.forEach((id) => delete updated[id]);
+
         return updated;
       });
 
@@ -185,77 +218,96 @@ const SideBar = () => {
 
   return (
     <div
-      className={`bg-[#8185B2]/10 h-full p-3 sm:p-5 rounded-r-xl overflow-y-auto text-white ${selectedUser ? "max-md:hidden" : ""
-        }`}
+      className={`h-screen md:h-full overflow-hidden bg-[#08101d] border-r border-white/5 text-white flex flex-col transition-all duration-300 ${
+        selectedUser ? "max-md:hidden" : ""
+      }`}
     >
-      {/* HEADER */}
-      <div className="pb-4 sm:pb-5">
-        <div className="flex justify-between items-center">
-          <h3 className="flex items-center gap-2 text-sm sm:text-base font-semibold truncate">
-            <img
-              src={logo}
-              alt="logo"
-              className="w-8 h-8 object-contain rounded-full"
-            />
+      <div className="px-4 pt-4 pb-4 border-b border-white/5 shrink-0 backdrop-blur-xl">
 
-            <span className="truncate">Suno Chat</span>
-          </h3>
+        {/* TOP */}
+        <div className="flex items-center justify-between">
 
-          <div className="relative py-2" ref={menuRef}>
-            <CiMenuKebab
+          {/* LOGO */}
+          <div className="flex items-center gap-3">
+
+            <div className="relative shrink-0">
+              <img
+                src={logo}
+                alt="logo"
+                className="w-12 h-12 rounded-2xl object-cover border border-cyan-400/20 shadow-md shadow-cyan-500/10"
+              />
+
+              <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#08101d]" />
+            </div>
+
+            <div className="overflow-hidden">
+              <h2 className="truncate text-xl sm:text-2xl font-bold bg-gradient-to-r from-cyan-300 via-blue-400 to-violet-500 bg-clip-text text-transparent">
+                Suno Chat
+              </h2>
+
+              <p className="text-xs text-gray-500">
+                Connect instantly
+              </p>
+            </div>
+          </div>
+
+          {/* MENU */}
+          <div className="relative shrink-0" ref={menuRef}>
+            <button
               onClick={() => {
-                if (!isSelecting) setShowMenu((prev) => !prev);
+                if (!isSelecting) {
+                  setShowMenu((prev) => !prev);
+                }
               }}
-              className="cursor-pointer"
-            />
+              className="w-10 h-10 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] active:scale-95 flex items-center justify-center transition-all duration-200"
+            >
+              <CiMenuKebab className="text-lg" />
+            </button>
 
             {showMenu && (
-              <div className="absolute top-full right-0 z-20 w-40 p-4 rounded-md bg-[#282142] border border-gray-600 text-gray-100">
+              <div className="absolute top-14 right-0 w-44 rounded-2xl overflow-hidden bg-[#111827]/95 border border-white/5 shadow-2xl z-50 backdrop-blur-xl">
+
                 {isSelecting ? (
                   <>
-                    <p
+                    <button
                       onClick={handleDelete}
-                      className="cursor-pointer text-red-400 text-sm"
+                      className="w-full text-left px-4 py-3 text-red-400 text-sm hover:bg-red-500/10 transition-all"
                     >
                       Delete ({deleteUsers.length})
-                    </p>
+                    </button>
 
-                    <hr className="my-2 border-gray-500" />
-
-                    <p
+                    <button
                       onClick={() => {
                         setDeleteUsers([]);
                         setIsSelecting(false);
                         setShowMenu(false);
                       }}
-                      className="cursor-pointer text-sm"
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition-all"
                     >
                       Cancel
-                    </p>
+                    </button>
                   </>
                 ) : (
                   <>
-                    <p
+                    <button
                       onClick={() => {
                         navigate("/profile");
                         setShowMenu(false);
                       }}
-                      className="cursor-pointer text-sm"
+                      className="w-full text-left px-4 py-3 text-sm hover:bg-white/5 transition-all"
                     >
                       Edit Profile
-                    </p>
+                    </button>
 
-                    <hr className="my-2 border-gray-500" />
-
-                    <p
+                    <button
                       onClick={() => {
                         logout();
                         setShowMenu(false);
                       }}
-                      className="cursor-pointer text-sm"
+                      className="w-full text-left px-4 py-3 text-red-400 text-sm hover:bg-red-500/10 transition-all"
                     >
                       Logout
-                    </p>
+                    </button>
                   </>
                 )}
               </div>
@@ -264,66 +316,142 @@ const SideBar = () => {
         </div>
 
         {/* SEARCH */}
-        <div className="bg-[skyblue] rounded-full flex items-center gap-2 py-2 sm:py-3 px-3 sm:px-4 mt-4 sm:mt-5">
-          <FcSearch className="w-4" />
+        <div className="mt-5 relative">
+
+          <IoSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg" />
+
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) =>
+              setInput(e.target.value)
+            }
             type="text"
-            placeholder="Search User..."
-            className="bg-transparent outline-none text-white text-sm flex-1"
+            placeholder="Search users..."
+            className="w-full bg-white/[0.04] border border-white/5 rounded-2xl pl-12 pr-4 py-3 outline-none text-sm text-white placeholder:text-gray-500 focus:border-cyan-400/40 focus:bg-white/[0.06] transition-all duration-200"
           />
         </div>
       </div>
 
       {/* USERS */}
-      <div className="flex flex-col">
-        {filteredUsers.map((u) => {
-          const isSelected = deleteUsers.some(
-            (item) => item._id === u._id
-          );
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-2 scrollbar-thin scrollbar-thumb-white/5 scrollbar-track-transparent">
 
-          return (
-            <div
-              key={u._id}
-              onClick={() => handleUserClick(u)}
-              onDoubleClick={(e) => handleDoubleClick(u, e)}
-              onTouchStart={() => handleTouchStart(u)}
-              onTouchEnd={handleTouchEnd}
-              className={`relative flex items-center gap-3 p-2 rounded cursor-pointer
-              ${selectedUser?._id === u._id
-                  ? "bg-[#282142]/50"
-                  : ""
+        {filteredUsers.length > 0 ? (
+          filteredUsers.map((u) => {
+
+            const isSelected =
+              deleteUsers.some(
+                (item) => item._id === u._id
+              );
+
+            return (
+              <div
+                key={u._id}
+                onClick={() => handleUserClick(u)}
+                onDoubleClick={(e) =>
+                  handleDoubleClick(u, e)
                 }
-              ${isSelected ? "bg-red-500/20" : ""}`}
-            >
-              <img
-                src={u?.profilePic || default_logo}
-                className="w-[35px] h-[35px] rounded-full object-cover"
-              />
+                onTouchStart={() =>
+                  handleTouchStart(u)
+                }
+                onTouchEnd={handleTouchEnd}
+                className={`group relative flex items-center gap-3 p-3 rounded-2xl cursor-pointer border transition-all duration-200 active:scale-[0.985]
 
-              <div className="flex flex-col truncate">
-                <p className="truncate">{u.fullName}</p>
+                ${
+                  selectedUser?._id === u._id
+                    ? "bg-gradient-to-r from-cyan-500/15 to-violet-500/15 border-cyan-400/20 shadow-md shadow-cyan-500/5"
+                    : "bg-white/[0.025] border-white/[0.04] hover:bg-white/[0.05]"
+                }
 
-                {onlineUsers.includes(u._id) ? (
-                  <span className="text-green-400 text-xs">
-                    Online
-                  </span>
-                ) : (
-                  <span className="text-gray-400 text-xs">
-                    Offline
-                  </span>
+                ${
+                  isSelected
+                    ? "bg-red-500/10 border-red-500/30 ring-1 ring-red-500/20"
+                    : ""
+                }
+              `}
+              >
+                {/* PROFILE */}
+                <div className="relative shrink-0">
+
+                  <img
+                    src={
+                      u?.profilePic ||
+                      default_logo
+                    }
+                    alt=""
+                    className={`w-[52px] h-[52px] rounded-2xl object-cover border transition-all duration-300
+                    ${
+                      isSelected
+                        ? "border-red-400/40"
+                        : "border-white/10"
+                    }
+                    `}
+                  />
+
+                  <span
+                    className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[#08101d]
+                    ${
+                      onlineUsers?.includes(
+                        u._id
+                      )
+                        ? "bg-green-500"
+                        : "bg-gray-500"
+                    }
+                  `}
+                  />
+                </div>
+
+                {/* INFO */}
+                <div className="flex-1 overflow-hidden">
+
+                  <div className="flex items-center justify-between gap-2">
+
+                    <h3 className="truncate font-semibold text-sm sm:text-[15px]">
+                      {u.fullName}
+                    </h3>
+
+                    {unseenMessages[u._id] >
+                      0 && (
+                      <div className="min-w-[20px] h-[20px] px-1 rounded-full bg-gradient-to-r from-violet-500 to-cyan-500 flex items-center justify-center text-[10px] font-bold shadow-md">
+                        {
+                          unseenMessages[
+                            u._id
+                          ]
+                        }
+                      </div>
+                    )}
+                  </div>
+
+                  <p
+                    className={`text-xs mt-1 truncate
+                    ${
+                      onlineUsers?.includes(
+                        u._id
+                      )
+                        ? "text-green-400"
+                        : "text-gray-500"
+                    }
+                  `}
+                  >
+                    {onlineUsers?.includes(
+                      u._id
+                    )
+                      ? "Active now"
+                      : "Offline"}
+                  </p>
+                </div>
+
+                {/* SELECT OVERLAY */}
+                {isSelected && (
+                  <div className="absolute inset-0 rounded-2xl bg-red-500/5 pointer-events-none" />
                 )}
               </div>
-
-              {unseenMessages[u._id] > 0 && (
-                <p className="absolute top-2 right-2 text-xs bg-violet-500/50 w-5 h-5 flex items-center justify-center rounded-full">
-                  {unseenMessages[u._id]}
-                </p>
-              )}
-            </div>
-          );
-        })}
+            );
+          })
+        ) : (
+          <div className="h-full min-h-[300px] flex items-center justify-center text-gray-500 text-sm">
+            No users found
+          </div>
+        )}
       </div>
     </div>
   );
