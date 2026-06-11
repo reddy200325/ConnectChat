@@ -1,5 +1,4 @@
 import express from "express";
-// IMPORTANT: Ensure this path matches your folder structure exactly
 import {
   getMessages,
   getUsersForSideBar,

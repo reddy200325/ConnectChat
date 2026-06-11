@@ -1,113 +1,240 @@
+import mongoose from "mongoose";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 
-// ---------------- GET USERS FOR SIDEBAR ----------------
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+/**
+ * Get Users For Sidebar
+ */
 export const getUsersForSideBar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
 
     const users = await User.find({
       _id: { $ne: loggedInUserId },
-    }).select("-password");
+    })
+      .select("-password")
+      .lean();
 
-    res.status(200).json(users);
-
+    return res.status(200).json({
+      success: true,
+      data: users || [],
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching users" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch users",
+    });
   }
 };
 
-// ---------------- GET MESSAGES ----------------
+/**
+ * Get Chat Messages
+ */
 export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
-    const senderId = req.user._id;
+    const loggedInUserId = req.user._id;
+
+    if (!isValidObjectId(userToChatId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format",
+      });
+    }
+
     const messages = await Message.find({
       $or: [
-        { sender: senderId, receiver: userToChatId },
-        { sender: userToChatId, receiver: senderId },
+        { senderId: loggedInUserId, receiverId: userToChatId },
+        { senderId: userToChatId, receiverId: loggedInUserId },
       ],
-    }).sort({ createdAt: 1 });
-    res.status(200).json(messages);
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      data: messages || [],
+    });
   } catch (error) {
-    console.error("Error in getMessages:", error.message);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch messages",
+    });
   }
 };
 
-// ---------------- SEND MESSAGES ----------------
+/**
+ * Send Message
+ */
 export const sendMessages = async (req, res) => {
   try {
     const { text, image } = req.body;
-    const { id: receiverId } = req.params;
+    const receiverId = req.params.id;
     const senderId = req.user._id;
 
-    const newMessage = new Message({
-      sender: senderId,
-      receiver: receiverId,
-      text,
-      image,
+    if (!receiverId || !isValidObjectId(receiverId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid receiver ID is required",
+      });
+    }
+
+    const trimmedText = text?.trim();
+    if (!trimmedText && !image) {
+      return res.status(400).json({
+        success: false,
+        message: "Message content cannot be empty",
+      });
+    }
+
+    if (senderId.toString() === receiverId.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: "You cannot send messages to yourself",
+      });
+    }
+
+    const receiverExists = await User.exists({ _id: receiverId });
+    if (!receiverExists) {
+      return res.status(404).json({
+        success: false,
+        message: "Receiver not found",
+      });
+    }
+
+    const newMessage = await Message.create({
+      senderId,
+      receiverId,
+      text: trimmedText || "",
+      image: image || "",
     });
 
-    await newMessage.save();
-    // Socket.io logic usually goes here
-    res.status(201).json(newMessage);
+    return res.status(201).json({
+      success: true,
+      data: newMessage,
+      message: "Message sent successfully",
+    });
   } catch (error) {
-    console.error("Error in sendMessages:", error.message);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send message",
+    });
   }
 };
 
-// ---------------- MARK AS SEEN ----------------
+/**
+ * Mark Messages As Seen
+ */
 export const markMessageAsSeen = async (req, res) => {
   try {
     const { id: senderId } = req.params;
-    const userId = req.user._id;
+    const receiverId = req.user._id;
+
+    if (!isValidObjectId(senderId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid sender ID format",
+      });
+    }
+
     await Message.updateMany(
-      { sender: senderId, receiver: userId, seen: false },
-      { $set: { seen: true } }
+      {
+        senderId,
+        receiverId,
+        seen: false,
+      },
+      {
+        $set: { seen: true },
+      }
     );
-    res.status(200).json({ message: "Messages marked as seen" });
+
+    return res.status(200).json({
+      success: true,
+      message: "Messages marked as seen",
+    });
   } catch (error) {
-    console.error("Error in markMessageAsSeen:", error.message);
-    res.status(500).json({ message: "Internal server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update messages",
+    });
   }
 };
 
-// ---------------- DELETE SINGLE MESSAGE ----------------
+/**
+ * Delete Single Message
+ */
 export const deleteMessage = async (req, res) => {
   try {
     const userId = req.user._id;
-    const messageId = req.params.id;
-    const message = await Message.findById(messageId);
-    if (!message) return res.status(404).json({ message: "Message not found" });
+    const { id: messageId } = req.params;
 
-    if (message.sender.toString() !== userId.toString() && message.receiver.toString() !== userId.toString()) {
-      return res.status(403).json({ message: "Not allowed to delete this message" });
+    if (!isValidObjectId(messageId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid message ID format",
+      });
     }
 
-    await Message.findByIdAndDelete(messageId);
-    res.status(200).json({ message: "Message deleted successfully" });
+    const deletedMessage = await Message.findOneAndDelete({
+      _id: messageId,
+      $or: [
+        { senderId: userId },
+        { receiverId: userId },
+      ],
+    });
+
+    if (!deletedMessage) {
+      return res.status(404).json({
+        success: false,
+        message: "Message not found or unauthorized to delete",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Message deleted successfully",
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete message",
+    });
   }
 };
 
-// ---------------- DELETE CONVERSATION ----------------
+/**
+ * Delete Conversation
+ */
 export const deleteConversation = async (req, res) => {
   try {
     const userId = req.user._id;
-    const otherUserId = req.params.id;
-    await Message.deleteMany({
+    const { id: otherUserId } = req.params;
+
+    if (!isValidObjectId(otherUserId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format",
+      });
+    }
+
+    const result = await Message.deleteMany({
       $or: [
-        { sender: userId, receiver: otherUserId },
-        { sender: otherUserId, receiver: userId },
+        { senderId: userId, receiverId: otherUserId },
+        { senderId: otherUserId, receiverId: userId },
       ],
     });
-    res.status(200).json({ message: "Conversation deleted" });
+
+    return res.status(200).json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: "Conversation deleted successfully",
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete conversation",
+    });
   }
 };

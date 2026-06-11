@@ -1,195 +1,197 @@
+import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 import { generateToken } from "../lib/utils.js";
 import User from "../models/User.js";
-import bcrypt from "bcryptjs";
 
-// ---------------- SIGNUP CONTROLLER ----------------
+// ==================== SIGNUP ====================
 export const signup = async (req, res) => {
   try {
     let { fullName, email, password, bio } = req.body;
 
-    // Normalize email
-    email = email.trim().toLowerCase();
-
-    // Validate required fields
     if (!fullName || !email || !password || !bio) {
-      return res.json({
+      return res.status(400).json({
         success: false,
-        message: "Missing Details",
+        message: "All fields are required",
       });
     }
 
-    // Check if user already exists
+    fullName = fullName.trim();
+    email = email.trim().toLowerCase();
+    bio = bio.trim();
+
     const existingUser = await User.findOne({ email });
 
     if (existingUser) {
-      return res.json({
+      return res.status(409).json({
         success: false,
         message: "Account already exists",
       });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
 
-    // Create new user
-    const newUser = await User.create({
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await User.create({
       fullName,
       email,
       password: hashedPassword,
       bio,
     });
 
-    // Generate token
-    const token = generateToken(newUser._id);
+    const token = generateToken(user._id);
 
-    // Remove password before sending response
-    const userResponse = newUser.toObject();
-    delete userResponse.password;
+    const userData = user.toObject();
+    delete userData.password;
 
-    res.json({
+    return res.status(201).json({
       success: true,
-      userData: userResponse,
       token,
+      user: userData,
       message: "Account created successfully",
     });
-
   } catch (error) {
-    console.log(error.message);
-
-    res.json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
 
-// ---------------- LOGIN CONTROLLER ----------------
+// ==================== LOGIN ====================
 export const login = async (req, res) => {
   try {
     let { email, password } = req.body;
 
-    email = email.trim().toLowerCase();
-
-    // Find user
-    const userData = await User.findOne({ email });
-
-    if (!userData) {
-      return res.json({
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: "User not found",
+        message: "Email and password are required",
       });
     }
 
-    // Compare password
-    const isPasswordCorrect = await bcrypt.compare(
-      password,
-      userData.password
-    );
+    email = email.trim().toLowerCase();
 
-    if (!isPasswordCorrect) {
-      return res.json({
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
     }
 
-    // Generate token
-    const token = generateToken(userData._id);
+    const isPasswordMatched = await bcrypt.compare(
+      password,
+      user.password
+    );
 
-    // Remove password before sending response
-    const userResponse = userData.toObject();
-    delete userResponse.password;
+    if (!isPasswordMatched) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
 
-    res.json({
+    const token = generateToken(user._id);
+
+    const userData = user.toObject();
+    delete userData.password;
+
+    return res.status(200).json({
       success: true,
-      userData: userResponse,
       token,
+      user: userData,
       message: "Login successful",
     });
-
   } catch (error) {
-    console.log(error.message);
-
-    res.json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
 
-// ---------------- CHECK AUTH CONTROLLER ----------------
-export const checkAuth = (req, res) => {
-  res.json({
+// ==================== CHECK AUTH ====================
+export const checkAuth = async (req, res) => {
+  return res.status(200).json({
     success: true,
     user: req.user,
   });
 };
 
-// ---------------- UPDATE PROFILE CONTROLLER ----------------
+// ==================== UPDATE PROFILE ====================
 export const updateProfile = async (req, res) => {
   try {
-    const { profilePic, bio, fullName } = req.body;
-
+    const { profilePic, fullName, bio } = req.body;
     const userId = req.user._id;
 
-    let updatedUser;
+    const updateData = {};
 
-    // Without image
-    if (!profilePic) {
-      updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          bio,
-          fullName,
-        },
-        { new: true }
-      );
-    } else {
-      // Upload image to cloudinary
-      const upload = await cloudinary.uploader.upload(profilePic);
-
-      updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          profilePic: upload.secure_url,
-          bio,
-          fullName,
-        },
-        { new: true }
-      );
+    if (fullName) {
+      updateData.fullName = fullName.trim();
     }
 
-    res.json({
+    if (bio) {
+      updateData.bio = bio.trim();
+    }
+
+    if (profilePic) {
+      const uploadResult = await cloudinary.uploader.upload(profilePic);
+      updateData.profilePic = uploadResult.secure_url;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).select("-password");
+
+    return res.status(200).json({
       success: true,
       user: updatedUser,
+      message: "Profile updated successfully",
     });
-
   } catch (error) {
-    console.log(error.message);
-
-    res.json({
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Failed to update profile",
     });
   }
 };
+
+// ==================== SEARCH USERS ====================
 export const searchUsers = async (req, res) => {
   try {
-    const search = req.query.search || "";
+    const search = req.query.search?.trim() || "";
 
     const users = await User.find({
+      _id: { $ne: req.user._id },
       fullName: {
         $regex: search,
         $options: "i",
       },
-    });
+    })
+      .select("-password")
+      .limit(20)
+      .lean();
 
-    res.json(users);
+    return res.status(200).json({
+      success: true,
+      users: users || [],
+    });
   } catch (error) {
-    res.status(500).json({
-      message: error.message,
+    return res.status(500).json({
+      success: false,
+      message: "Failed to search users",
     });
   }
 };
