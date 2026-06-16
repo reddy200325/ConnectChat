@@ -6,7 +6,7 @@ export const protectRoute = async (req, res, next) => {
     const token = req.headers.token;
 
     if (!token) {
-      return res.status(401).json({
+      return res.json({
         success: false,
         message: "Token not found",
       });
@@ -17,7 +17,7 @@ export const protectRoute = async (req, res, next) => {
     const user = await User.findById(decoded.userId).select("-password");
 
     if (!user) {
-      return res.status(401).json({
+      return res.json({
         success: false,
         message: "User not found",
       });
@@ -25,10 +25,11 @@ export const protectRoute = async (req, res, next) => {
 
     req.user = user;
     next();
+
   } catch (error) {
-    return res.status(500).json({
+    res.json({
       success: false,
-      message: "Internal server error",
+      message: error.message,
     });
   }
 };

@@ -4,6 +4,7 @@ import {
   FiArrowLeft,
   FiImage,
   FiUser,
+  FiX,
 } from "react-icons/fi";
 
 import { ChatContext } from "../../context/ChatContext";
@@ -15,7 +16,6 @@ const RightSideBar = ({
   showSidebar,
   setShowSidebar,
 }) => {
-
   const { selectedUser, messages } =
     useContext(ChatContext);
 
@@ -23,424 +23,540 @@ const RightSideBar = ({
     useContext(AuthContext);
 
   const [msgImages, setMsgImages] = useState([]);
+  const [previewImage, setPreviewImage] =
+    useState(null);
 
-  // ================= GET IMAGES =================
+  // ================= GET SHARED IMAGES =================
   useEffect(() => {
-
     const images = messages
       .filter((msg) => msg.image)
       .map((msg) => msg.image);
 
     setMsgImages(images);
-
   }, [messages]);
 
   if (!selectedUser) return null;
 
   return (
-    <div
-      className={`
-        fixed md:relative top-0 right-0 z-50
-
-        h-[100dvh] md:h-screen
-
-        w-full sm:w-[360px] lg:w-[390px]
-
-        bg-gradient-to-b
-        from-[#08101d]
-        via-[#0b1525]
-        to-[#101827]
-
-        border-l border-white/5
-
-        text-white
-
-        flex flex-col
-
-        overflow-hidden
-
-        transition-all duration-300
-
-        ${
-          showSidebar
-            ? "translate-x-0"
-            : "translate-x-full md:translate-x-0"
-        }
-      `}
-    >
-
-      {/* ================= HEADER ================= */}
-      <div
-        className="
-          shrink-0
-
-          sticky top-0 z-20
-
-          px-5 py-4
-
-          border-b border-white/5
-
-          bg-[#08101d]/90
-          backdrop-blur-2xl
-        "
-      >
-
-        <div className="flex items-center gap-3">
-
-          {/* BACK */}
-          <button
-            onClick={() => setShowSidebar(false)}
-            className="
-              md:hidden
-
-              w-10 h-10
-
-              rounded-2xl
-
-              bg-white/[0.04]
-              hover:bg-white/[0.08]
-
-              flex items-center justify-center
-
-              transition-all duration-200
-            "
-          >
-            <FiArrowLeft className="text-lg" />
-          </button>
-
-          {/* TITLE */}
-          <div>
-            <h2 className="text-xl font-bold">
-              Profile Info
-            </h2>
-
-            <p className="text-sm text-gray-500 mt-0.5">
-              Chat details & media
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ================= BODY ================= */}
-      <div
-        className="
-          flex-1
-
-          overflow-y-auto
-
-          px-5
-          pt-6
-          pb-4
-
-          scrollbar-thin
-          scrollbar-thumb-white/5
-          scrollbar-track-transparent
-        "
-      >
-
-        {/* ================= PROFILE ================= */}
-        <div className="flex flex-col items-center">
-
-          {/* IMAGE */}
-          <div className="relative">
-
-            {/* GLOW */}
-            <div
-              className="
-                absolute inset-0
-
-                rounded-full
-
-                bg-cyan-500/20
-
-                blur-3xl
-              "
-            />
-
-            <img
-              src={
-                selectedUser?.profilePic ||
-                default_logo
-              }
-              alt=""
-              className="
-                relative
-
-                w-24 h-24
-                sm:w-28 sm:h-28
-
-                rounded-full
-                object-cover
-
-                border-[3px]
-                border-cyan-400/20
-
-                shadow-[0_0_30px_rgba(34,211,238,0.18)]
-              "
-            />
-          </div>
-
-          {/* NAME */}
-          <h1
-            className="
-              mt-5
-
-              text-2xl
-              font-bold
-
-              text-center
-              break-words
-            "
-          >
-            {selectedUser.fullName}
-          </h1>
-
-          {/* STATUS */}
-          <div
-            className="
-              mt-3
-
-              flex items-center gap-2
-
-              px-4 py-2
-
-              rounded-full
-
-              bg-white/[0.04]
-              border border-white/5
-            "
-          >
-
-            <span
-              className={`w-2.5 h-2.5 rounded-full ${
-                onlineUsers?.includes(
-                  selectedUser._id
-                )
-                  ? "bg-green-500 shadow-[0_0_10px_#22c55e]"
-                  : "bg-gray-500"
-              }`}
-            />
-
-            <p className="text-sm text-gray-300">
-              {onlineUsers?.includes(
-                selectedUser._id
-              )
-                ? "Online"
-                : "Offline"}
-            </p>
-          </div>
-        </div>
-
-        {/* ================= ABOUT ================= */}
+    <>
+      {/* IMAGE PREVIEW MODAL */}
+      {previewImage && (
         <div
           className="
-            mt-8
+            fixed
+            inset-0
+            z-[999]
+            bg-black/90
+            backdrop-blur-md
+            flex
+            items-center
+            justify-center
+            p-4
+          "
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            className="
+              absolute
+              top-5
+              right-5
+              w-12
+              h-12
+              rounded-full
+              bg-white/10
+              text-white
+              flex
+              items-center
+              justify-center
+            "
+          >
+            <FiX size={22} />
+          </button>
 
-            rounded-[30px]
+          <img
+            src={previewImage}
+            alt=""
+            className="
+              max-w-[90vw]
+              max-h-[90vh]
+              rounded-3xl
+              shadow-2xl
+            "
+          />
+        </div>
+      )}
 
-            bg-white/[0.03]
-            border border-white/5
+      <div
+        className={`
+          fixed md:relative
+          top-0 right-0 z-50
 
-            p-6
+          h-[100dvh]
+          md:h-screen
+
+          w-full
+          sm:w-[360px]
+          lg:w-[400px]
+
+          bg-[#0A0F1D]
+
+          border-l
+          border-white/10
+
+          text-white
+
+          flex
+          flex-col
+
+          overflow-hidden
+
+          transition-all
+          duration-300
+
+          ${
+            showSidebar
+              ? "translate-x-0"
+              : "translate-x-full md:translate-x-0"
+          }
+        `}
+      >
+        {/* BACKGROUND GLOW */}
+        <div
+          className="
+            absolute
+            inset-0
+            bg-gradient-to-br
+            from-cyan-500/[0.03]
+            via-transparent
+            to-violet-500/[0.03]
+            pointer-events-none
+          "
+        />
+
+        {/* HEADER */}
+        <div
+          className="
+            relative
+            z-20
+
+            shrink-0
+
+            px-5
+            py-4
+
+            bg-[#141C2E]/90
+            backdrop-blur-xl
+
+            border-b
+            border-white/10
           "
         >
-
-          <div className="flex items-center gap-3 mb-5">
-
-            <div
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() =>
+                setShowSidebar(false)
+              }
               className="
-                w-12 h-12
+                md:hidden
+
+                w-10
+                h-10
 
                 rounded-2xl
 
-                bg-cyan-500/10
+                bg-white/[0.05]
 
-                flex items-center justify-center
+                hover:bg-white/[0.08]
+
+                flex
+                items-center
+                justify-center
+
+                transition-all
               "
             >
-              <FiUser className="text-cyan-400 text-lg" />
-            </div>
+              <FiArrowLeft className="text-lg" />
+            </button>
 
             <div>
-              <h3 className="text-xl font-semibold">
-                About User
-              </h3>
+              <h2 className="text-xl font-bold">
+                Profile Info
+              </h2>
 
-              <p className="text-xs text-gray-500 mt-1">
-                User bio & information
+              <p className="text-sm text-slate-400">
+                Chat details & media
               </p>
             </div>
           </div>
-
-          <p
-            className="
-              text-[15px]
-              leading-8
-
-              text-gray-300
-
-              break-words
-            "
-          >
-            {selectedUser.bio ||
-              "No bio added yet."}
-          </p>
         </div>
 
-        {/* ================= MEDIA ================= */}
-        <div className="mt-10">
+        {/* BODY */}
+        <div
+          className="
+            relative
+            z-10
 
-          {/* TOP */}
-          <div className="flex items-center justify-between mb-5">
+            flex-1
 
-            <div className="flex items-center gap-3">
+            overflow-y-auto
 
+            px-5
+            py-6
+          "
+        >
+          {/* PROFILE CARD */}
+          <div
+            className="
+              rounded-[32px]
+
+              bg-[#141C2E]
+
+              border
+              border-white/10
+
+              p-8
+
+              text-center
+            "
+          >
+            {/* PROFILE IMAGE */}
+            <div className="relative w-fit mx-auto">
               <div
                 className="
-                  w-12 h-12
+                  absolute
+                  inset-0
+
+                  rounded-full
+
+                  bg-cyan-500/20
+
+                  blur-3xl
+                "
+              />
+
+              <img
+                src={
+                  selectedUser.profilePic ||
+                  default_logo
+                }
+                alt=""
+                className="
+                  relative
+
+                  w-28
+                  h-28
+
+                  rounded-full
+
+                  object-cover
+
+                  border-[3px]
+                  border-cyan-500/20
+
+                  shadow-[0_0_40px_rgba(6,182,212,.25)]
+                "
+              />
+            </div>
+
+            {/* NAME */}
+            <h1
+              className="
+                mt-5
+
+                text-2xl
+
+                font-bold
+
+                break-words
+              "
+            >
+              {selectedUser.fullName}
+            </h1>
+
+            {/* STATUS */}
+            <div
+              className="
+                mt-4
+
+                inline-flex
+
+                items-center
+                gap-2
+
+                px-4
+                py-2
+
+                rounded-full
+
+                bg-green-500/10
+
+                border
+                border-green-500/20
+              "
+            >
+              <span
+                className={`
+                  w-3
+                  h-3
+                  rounded-full
+
+                  ${
+                    onlineUsers?.includes(
+                      selectedUser._id
+                    )
+                      ? "bg-green-400 animate-pulse"
+                      : "bg-slate-500"
+                  }
+                `}
+              />
+
+              <span className="text-sm">
+                {onlineUsers?.includes(
+                  selectedUser._id
+                )
+                  ? "Online"
+                  : "Offline"}
+              </span>
+            </div>
+          </div>
+
+          {/* ABOUT CARD */}
+          <div
+            className="
+              mt-6
+
+              rounded-[30px]
+
+              bg-[#141C2E]
+
+              border
+              border-white/10
+
+              p-6
+            "
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div
+                className="
+                  w-12
+                  h-12
 
                   rounded-2xl
 
-                  bg-pink-500/10
+                  bg-cyan-500/10
 
-                  flex items-center justify-center
+                  flex
+                  items-center
+                  justify-center
                 "
               >
-                <FiImage className="text-pink-400 text-lg" />
+                <FiUser className="text-cyan-400 text-lg" />
               </div>
 
               <div>
-                <h3 className="text-xl font-semibold">
-                  Shared Media
+                <h3 className="text-lg font-semibold">
+                  About User
                 </h3>
 
-                <p className="text-xs text-gray-500 mt-1">
-                  Photos & shared files
+                <p className="text-xs text-slate-500">
+                  Bio & information
                 </p>
               </div>
             </div>
 
-            <span
+            <p
               className="
-                text-xs
+                text-slate-300
 
-                bg-white/[0.04]
-                border border-white/5
+                leading-8
 
-                px-3 py-1.5
-
-                rounded-full
-
-                text-gray-300
+                break-words
               "
             >
-              {msgImages.length} Files
-            </span>
+              {selectedUser.bio ||
+                "No bio added yet."}
+            </p>
           </div>
+                    {/* SHARED MEDIA */}
+          <div className="mt-8">
+            {/* HEADER */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div
+                  className="
+                    w-12
+                    h-12
 
-          {/* EMPTY */}
-          {msgImages.length === 0 ? (
-            <div
-              className="
-                rounded-[32px]
+                    rounded-2xl
 
-                border border-dashed border-white/10
+                    bg-pink-500/10
 
-                bg-white/[0.03]
+                    flex
+                    items-center
+                    justify-center
+                  "
+                >
+                  <FiImage className="text-pink-400 text-lg" />
+                </div>
 
-                py-16 px-6
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    Shared Media
+                  </h3>
 
-                text-center
-              "
-            >
+                  <p className="text-xs text-slate-500">
+                    Photos exchanged in chat
+                  </p>
+                </div>
+              </div>
 
               <div
                 className="
-                  w-20 h-20
+                  px-3
+                  py-1.5
 
-                  mx-auto mb-6
+                  rounded-full
 
-                  rounded-3xl
+                  bg-white/5
 
-                  bg-white/[0.04]
+                  border
+                  border-white/10
 
-                  flex items-center justify-center
+                  text-xs
+                  text-slate-300
                 "
               >
-                <FiImage className="text-3xl text-gray-400" />
+                {msgImages.length} Files
               </div>
+            </div>
 
-              <h2 className="text-2xl font-semibold">
-                No Media Shared
-              </h2>
-
-              <p
+            {/* EMPTY STATE */}
+            {msgImages.length === 0 ? (
+              <div
                 className="
-                  text-sm sm:text-base
+                  rounded-[32px]
 
-                  text-gray-500
+                  border
+                  border-dashed
+                  border-white/10
 
-                  mt-4
-                  leading-7
+                  bg-[#141C2E]
+
+                  py-14
+                  px-6
+
+                  text-center
                 "
               >
-                Photos and images shared in chat
-                will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-
-              {msgImages.map((url, index) => (
                 <div
-                  key={index}
-                  onClick={() => window.open(url)}
                   className="
-                    relative
+                    w-20
+                    h-20
 
-                    overflow-hidden
-                    rounded-2xl
+                    mx-auto
+                    mb-5
 
-                    cursor-pointer
-                    group
+                    rounded-3xl
 
-                    border border-white/5
-                    bg-white/[0.03]
+                    bg-pink-500/10
 
-                    aspect-square
+                    flex
+                    items-center
+                    justify-center
                   "
                 >
-
-                  <img
-                    src={url}
-                    alt=""
-                    className="
-                      w-full h-full
-
-                      object-cover
-
-                      transition-all duration-500
-                      group-hover:scale-105
-                    "
-                  />
-
-                  <div
-                    className="
-                      absolute inset-0
-
-                      bg-black/0
-                      group-hover:bg-black/10
-
-                      transition-all duration-300
-                    "
-                  />
+                  <FiImage className="text-3xl text-pink-400" />
                 </div>
-              ))}
-            </div>
-          )}
+
+                <h3 className="text-xl font-semibold">
+                  No Shared Media
+                </h3>
+
+                <p
+                  className="
+                    mt-3
+
+                    text-sm
+
+                    text-slate-400
+
+                    leading-7
+                  "
+                >
+                  Images shared in this conversation
+                  will appear here.
+                </p>
+              </div>
+            ) : (
+              <div
+                className="
+                  grid
+                  grid-cols-2
+                  gap-4
+                "
+              >
+                {msgImages.map((image, index) => (
+                  <div
+                    key={index}
+                    onClick={() =>
+                      setPreviewImage(image)
+                    }
+                    className="
+                      relative
+
+                      aspect-square
+
+                      overflow-hidden
+
+                      rounded-3xl
+
+                      cursor-pointer
+
+                      bg-[#141C2E]
+
+                      border
+                      border-white/10
+
+                      group
+                    "
+                  >
+                    <img
+                      src={image}
+                      alt=""
+                      className="
+                        w-full
+                        h-full
+
+                        object-cover
+
+                        transition-all
+                        duration-500
+
+                        group-hover:scale-110
+                      "
+                    />
+
+                    <div
+                      className="
+                        absolute
+                        inset-0
+
+                        bg-black/0
+
+                        group-hover:bg-black/10
+
+                        transition-all
+                        duration-300
+                      "
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

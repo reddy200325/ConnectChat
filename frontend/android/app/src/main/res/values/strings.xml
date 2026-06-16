@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SunoChat</string>
+    <string name="title_activity_main">SunoChat</string>
+    <string name="package_name">com.reddy.sunochat</string>
+    <string name="custom_url_scheme">com.reddy.sunochat</string>
+</resources>

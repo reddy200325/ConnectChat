@@ -14,6 +14,6 @@ userRouter.post("/signup", signup);
 userRouter.post("/login", login);
 userRouter.put("/update-profile", protectRoute, updateProfile);
 userRouter.get("/check", protectRoute, checkAuth);
-userRouter.get("/search", searchUsers);
+userRouter.get("/search", protectRoute, searchUsers);
 
 export default userRouter;

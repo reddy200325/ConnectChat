@@ -1,4 +1,5 @@
 import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -8,7 +9,6 @@ import userRouter from "./Routes/userRoutes.js";
 import messageRouter from "./Routes/messageRouter.js";
 import { Server } from "socket.io";
 
-dns.setDefaultResultOrder("ipv4first");
 dotenv.config();
 
 const app = express();

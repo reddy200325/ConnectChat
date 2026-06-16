@@ -1,12 +1,8 @@
-import mongoose from "mongoose";
 import Message from "../models/Message.js";
 import User from "../models/User.js";
 
-const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-/**
- * Get Users For Sidebar
- */
+// ---------------- GET USERS FOR SIDEBAR ----------------
 export const getUsersForSideBar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
@@ -15,211 +11,180 @@ export const getUsersForSideBar = async (req, res) => {
       _id: { $ne: loggedInUserId },
     })
       .select("-password")
-      .lean();
+      .sort({ lastMessageAt: -1 });
 
     return res.status(200).json({
       success: true,
-      data: users || [],
+      users,
+      unseenMessages: {},
     });
+
   } catch (error) {
+    console.error("getUsersForSideBar error:", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch users",
+      message: "Error fetching users",
     });
   }
 };
 
-/**
- * Get Chat Messages
- */
+
+// ---------------- GET MESSAGES ----------------
 export const getMessages = async (req, res) => {
   try {
     const { id: userToChatId } = req.params;
-    const loggedInUserId = req.user._id;
-
-    if (!isValidObjectId(userToChatId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user ID format",
-      });
-    }
+    const senderId = req.user._id;
 
     const messages = await Message.find({
       $or: [
-        { senderId: loggedInUserId, receiverId: userToChatId },
-        { senderId: userToChatId, receiverId: loggedInUserId },
+        { senderId, receiverId: userToChatId },
+        { senderId: userToChatId, receiverId: senderId },
       ],
-    })
-      .sort({ createdAt: 1 })
-      .lean();
+    }).sort({ createdAt: 1 });
 
     return res.status(200).json({
       success: true,
-      data: messages || [],
+      messages,
     });
+
   } catch (error) {
+    console.error("getMessages error:", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to fetch messages",
+      message: "Internal server error",
     });
   }
 };
 
-/**
- * Send Message
- */
+
+// ---------------- SEND MESSAGE ----------------
 export const sendMessages = async (req, res) => {
   try {
     const { text, image } = req.body;
+
     const receiverId = req.params.id;
     const senderId = req.user._id;
 
-    if (!receiverId || !isValidObjectId(receiverId)) {
+    if (!senderId || !receiverId) {
       return res.status(400).json({
         success: false,
-        message: "A valid receiver ID is required",
-      });
-    }
-
-    const trimmedText = text?.trim();
-    if (!trimmedText && !image) {
-      return res.status(400).json({
-        success: false,
-        message: "Message content cannot be empty",
-      });
-    }
-
-    if (senderId.toString() === receiverId.toString()) {
-      return res.status(400).json({
-        success: false,
-        message: "You cannot send messages to yourself",
-      });
-    }
-
-    const receiverExists = await User.exists({ _id: receiverId });
-    if (!receiverExists) {
-      return res.status(404).json({
-        success: false,
-        message: "Receiver not found",
+        message: "Sender or Receiver ID missing",
       });
     }
 
     const newMessage = await Message.create({
       senderId,
       receiverId,
-      text: trimmedText || "",
-      image: image || "",
+      text,
+      image,
     });
+
+    // ✅ IMPORTANT: update chat order timestamp (FIX REFRESH ORDER ISSUE)
+    await User.updateMany(
+      { _id: { $in: [senderId, receiverId] } },
+      { $set: { lastMessageAt: new Date() } }
+    );
 
     return res.status(201).json({
       success: true,
-      data: newMessage,
-      message: "Message sent successfully",
+      newMessage,
     });
+
   } catch (error) {
+    console.error("sendMessages error:", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to send message",
+      message: error.message,
     });
   }
 };
 
-/**
- * Mark Messages As Seen
- */
+
+// ---------------- MARK AS SEEN ----------------
 export const markMessageAsSeen = async (req, res) => {
   try {
     const { id: senderId } = req.params;
-    const receiverId = req.user._id;
-
-    if (!isValidObjectId(senderId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid sender ID format",
-      });
-    }
+    const userId = req.user._id;
 
     await Message.updateMany(
       {
         senderId,
-        receiverId,
+        receiverId: userId,
         seen: false,
       },
-      {
-        $set: { seen: true },
-      }
+      { $set: { seen: true } }
     );
 
     return res.status(200).json({
       success: true,
       message: "Messages marked as seen",
     });
+
   } catch (error) {
+    console.error("markMessageAsSeen error:", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to update messages",
+      message: "Internal server error",
     });
   }
 };
 
-/**
- * Delete Single Message
- */
+
+// ---------------- DELETE MESSAGE ----------------
 export const deleteMessage = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { id: messageId } = req.params;
+    const messageId = req.params.id;
 
-    if (!isValidObjectId(messageId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid message ID format",
-      });
-    }
+    const message = await Message.findById(messageId);
 
-    const deletedMessage = await Message.findOneAndDelete({
-      _id: messageId,
-      $or: [
-        { senderId: userId },
-        { receiverId: userId },
-      ],
-    });
-
-    if (!deletedMessage) {
+    if (!message) {
       return res.status(404).json({
         success: false,
-        message: "Message not found or unauthorized to delete",
+        message: "Message not found",
       });
     }
+
+    const isOwner =
+      message.senderId.toString() === userId.toString() ||
+      message.receiverId.toString() === userId.toString();
+
+    if (!isOwner) {
+      return res.status(403).json({
+        success: false,
+        message: "Not allowed",
+      });
+    }
+
+    await Message.findByIdAndDelete(messageId);
 
     return res.status(200).json({
       success: true,
-      message: "Message deleted successfully",
+      message: "Deleted successfully",
     });
+
   } catch (error) {
+    console.error("deleteMessage error:", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to delete message",
+      message: "Server error",
     });
   }
 };
 
-/**
- * Delete Conversation
- */
+
+// ---------------- DELETE CONVERSATION ----------------
 export const deleteConversation = async (req, res) => {
   try {
     const userId = req.user._id;
-    const { id: otherUserId } = req.params;
+    const otherUserId = req.params.id;
 
-    if (!isValidObjectId(otherUserId)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid user ID format",
-      });
-    }
-
-    const result = await Message.deleteMany({
+    await Message.deleteMany({
       $or: [
         { senderId: userId, receiverId: otherUserId },
         { senderId: otherUserId, receiverId: userId },
@@ -228,13 +193,15 @@ export const deleteConversation = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      deletedCount: result.deletedCount,
-      message: "Conversation deleted successfully",
+      message: "Conversation deleted",
     });
+
   } catch (error) {
+    console.error("deleteConversation error:", error);
+
     return res.status(500).json({
       success: false,
-      message: "Failed to delete conversation",
+      message: "Server error",
     });
   }
 };

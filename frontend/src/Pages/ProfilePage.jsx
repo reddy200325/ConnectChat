@@ -1,5 +1,13 @@
-import React, { useContext, useRef, useState } from "react";
+import React, {
+  useContext,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
+
 import { useNavigate } from "react-router-dom";
+
+import { requestCamera } from "../lib/permissions";
 
 import {
   FaCamera,
@@ -20,136 +28,139 @@ import default_logo from "../assets/photos/default_logo.png";
 import { AuthContext } from "../../context/authContext";
 
 const ProfilePage = () => {
-  const { authUser, updateProfile } =
-    useContext(AuthContext);
+  const { authUser, updateProfile } = useContext(AuthContext);
 
   const navigate = useNavigate();
+  const fileRef = useRef(null);
 
-  const fileRef = useRef();
+  const [selectedImg, setSelectedImg] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const [selectedImg, setSelectedImg] =
-    useState(null);
+  const [name, setName] = useState(authUser?.fullName || "");
+  const [bio, setBio] = useState(authUser?.bio || "");
 
-  const [showPreview, setShowPreview] =
-    useState(false);
-
-  const [refreshKey, setRefreshKey] =
-    useState(0);
-
-  const [name, setName] = useState(
-    authUser?.fullName || ""
-  );
-
-  const [bio, setBio] = useState(
-    authUser?.bio || ""
-  );
+  // ================= IMAGE PREVIEW =================
+  const previewImage = useMemo(() => {
+    if (selectedImg) {
+      return URL.createObjectURL(selectedImg);
+    }
+    return authUser?.profilePic || default_logo;
+  }, [selectedImg, authUser]);
 
   // ================= IMAGE SELECT =================
   const handleImageSelect = (file) => {
     if (!file) return;
-
     setSelectedImg(file);
-
     setShowPreview(false);
+  };
+
+  // ================= CAMERA =================
+  const handleCameraClick = async () => {
+    await requestCamera();
   };
 
   // ================= DELETE IMAGE =================
   const handleDelete = async () => {
-    await updateProfile({
-      profilePic: null,
-    });
-
-    setSelectedImg(null);
-
-    setShowPreview(false);
-
-    setRefreshKey((prev) => prev + 1);
+    try {
+      setLoading(true);
+      await updateProfile({
+        profilePic: null,
+      });
+      setSelectedImg(null);
+      setShowPreview(false);
+      setRefreshKey((prev) => prev + 1);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ================= SAVE PROFILE =================
   const handleSubmit = async (e) => {
     e.preventDefault();
+    try {
+      setLoading(true);
 
-    if (!selectedImg) {
-      await updateProfile({
-        fullName: name,
-        bio,
-      });
+      if (!selectedImg) {
+        await updateProfile({
+          fullName: name,
+          bio,
+        });
+        navigate("/");
+        return;
+      }
 
-      navigate("/");
-
-      return;
+      const reader = new FileReader();
+      reader.readAsDataURL(selectedImg);
+      reader.onload = async () => {
+        await updateProfile({
+          profilePic: reader.result,
+          fullName: name,
+          bio,
+        });
+        navigate("/");
+      };
+    } finally {
+      setLoading(false);
     }
-
-    const reader = new FileReader();
-
-    reader.readAsDataURL(selectedImg);
-
-    reader.onload = async () => {
-      await updateProfile({
-        profilePic: reader.result,
-        fullName: name,
-        bio,
-      });
-
-      navigate("/");
-    };
   };
 
   return (
     <div
       className="
-      min-h-screen
-      bg-gradient-to-br
-      from-[#020617]
-      via-[#07111f]
-      to-[#0f172a]
-      flex
-      items-center
-      justify-center
-      px-3
-      sm:px-5
-      py-6
-      overflow-hidden
-    "
+        relative
+        min-h-screen
+        bg-gradient-to-br
+        from-[#020617]
+        via-[#07111f]
+        to-[#0f172a]
+        flex
+        items-center
+        justify-center
+        px-4
+        sm:px-6
+        py-8
+        overflow-hidden
+      "
     >
-      {/* ================= BACKGROUND GLOW ================= */}
-      <div className="absolute top-[-100px] left-[-100px] w-[250px] h-[250px] bg-cyan-500/20 blur-[120px] rounded-full"></div>
+      {/* GLOW EFFECTS */}
+      <div className="absolute -top-24 -left-24 w-72 h-72 bg-cyan-500/20 blur-[140px] rounded-full" />
+      <div className="absolute -bottom-24 -right-24 w-72 h-72 bg-violet-500/20 blur-[140px] rounded-full" />
 
-      <div className="absolute bottom-[-100px] right-[-100px] w-[250px] h-[250px] bg-violet-500/20 blur-[120px] rounded-full"></div>
-
-      {/* ================= MAIN CARD ================= */}
+      {/* MAIN CARD */}
       <div
         className="
-        relative
-        w-full
-        max-w-5xl
-        rounded-[2rem]
-        overflow-hidden
-        border border-white/10
-        bg-white/5
-        backdrop-blur-2xl
-        shadow-[0_0_50px_rgba(0,0,0,0.45)]
-        grid
-        lg:grid-cols-[380px_1fr]
-      "
+          relative
+          w-full
+          max-w-6xl
+          overflow-hidden
+          rounded-[2rem]
+          border
+          border-white/10
+          bg-white/5
+          backdrop-blur-2xl
+          shadow-[0_0_50px_rgba(0,0,0,0.45)]
+          grid
+          lg:grid-cols-[35%_65%]
+        "
       >
         {/* ================= LEFT PANEL ================= */}
         <div
           className="
-          relative
-          bg-gradient-to-b
-          from-cyan-500/10
-          via-blue-500/5
-          to-violet-500/10
-          border-b lg:border-b-0 lg:border-r
-          border-white/10
-          p-8
-          flex
-          flex-col
-          items-center
-          justify-center
-        "
+            relative
+            bg-gradient-to-b
+            from-cyan-500/10
+            via-blue-500/5
+            to-violet-500/10
+            border-b lg:border-b-0 lg:border-r
+            border-white/10
+            p-8
+            flex
+            flex-col
+            items-center
+            justify-center
+          "
         >
           {/* BACK BUTTON */}
           <button
@@ -175,22 +186,14 @@ const ProfilePage = () => {
 
           {/* PROFILE IMAGE */}
           <div className="relative group mt-8 lg:mt-0">
-
             {/* GLOW */}
             <div className="absolute inset-0 rounded-full bg-cyan-500 blur-3xl opacity-40 group-hover:opacity-70 transition duration-500"></div>
 
             <img
               key={refreshKey}
-              src={
-                selectedImg
-                  ? URL.createObjectURL(selectedImg)
-                  : authUser?.profilePic ||
-                    default_logo
-              }
+              src={previewImage}
               alt="profile"
-              onClick={() =>
-                setShowPreview(true)
-              }
+              onClick={() => setShowPreview(true)}
               className="
                 relative
                 w-40 h-40
@@ -205,12 +208,10 @@ const ProfilePage = () => {
               "
             />
 
-            {/* CAMERA */}
+            {/* CAMERA BUTTON */}
             <button
               type="button"
-              onClick={() =>
-                fileRef.current.click()
-              }
+              onClick={() => fileRef.current.click()}
               className="
                 absolute
                 bottom-3
@@ -236,100 +237,79 @@ const ProfilePage = () => {
               ref={fileRef}
               hidden
               accept="image/*"
-              onChange={(e) =>
-                handleImageSelect(
-                  e.target.files[0]
-                )
-              }
+              onChange={(e) => handleImageSelect(e.target.files?.[0])}
             />
           </div>
 
-          {/* NAME */}
+          {/* NAME DISPLAY */}
           <h2 className="mt-6 text-2xl sm:text-3xl font-bold text-white text-center">
             {name || "Your Profile"}
           </h2>
 
           {/* SUBTITLE */}
           <p className="text-gray-400 text-sm mt-2 text-center max-w-[250px] leading-6">
-            Customize your Suno Chat profile
-            with a photo, display name, and
-            bio.
+            Customize your Suno Chat profile with a photo, display name, and bio.
           </p>
 
           {/* BADGE */}
           <div
             className="
-            mt-5
-            flex
-            items-center
-            gap-2
-            px-4
-            py-2
-            rounded-full
-            bg-white/10
-            border border-white/10
-          "
+              mt-5
+              flex
+              items-center
+              gap-2
+              px-4
+              py-2
+              rounded-full
+              bg-white/10
+              border border-white/10
+            "
           >
             <FaUserEdit className="text-cyan-400" />
-
-            <span className="text-sm text-gray-300">
-              Edit Your Identity
-            </span>
+            <span className="text-sm text-gray-300">Edit Your Identity</span>
           </div>
         </div>
 
         {/* ================= RIGHT PANEL ================= */}
         <div className="p-6 sm:p-8 lg:p-10">
-
           {/* TITLE */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white">
-              Profile Settings
-            </h1>
-
+            <h1 className="text-3xl font-bold text-white">Profile Settings</h1>
             <p className="text-gray-400 mt-2 text-sm">
-              Update your profile details and
-              personalize your account.
+              Update your profile details and personalize your account.
             </p>
           </div>
 
           {/* FORM */}
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col gap-7"
-          >
-            {/* NAME */}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-7">
+            {/* NAME INPUT */}
             <div>
               <label className="flex items-center gap-2 text-sm text-gray-300 mb-3">
                 <FiUser className="text-cyan-400" />
-
                 Full Name
               </label>
 
               <div
                 className="
-                flex
-                items-center
-                gap-3
-                bg-white/5
-                border border-white/10
-                rounded-2xl
-                px-5
-                py-4
-                focus-within:border-cyan-400
-                transition
-              "
+                  flex
+                  items-center
+                  gap-3
+                  bg-white/5
+                  border border-white/10
+                  rounded-2xl
+                  px-5
+                  py-4
+                  focus-within:border-cyan-400
+                  transition
+                "
               >
                 <FiEdit3 className="text-gray-400 text-lg" />
-
                 <input
                   type="text"
                   placeholder="Enter your name"
                   required
                   value={name}
-                  onChange={(e) =>
-                    setName(e.target.value)
-                  }
+                  onChange={(e) => setName(e.target.value)}
                   className="
                     w-full
                     bg-transparent
@@ -341,11 +321,10 @@ const ProfilePage = () => {
               </div>
             </div>
 
-            {/* BIO */}
+            {/* BIO INPUT */}
             <div>
               <label className="flex items-center gap-2 text-sm text-gray-300 mb-3">
                 <FiEdit3 className="text-violet-400" />
-
                 Bio
               </label>
 
@@ -354,9 +333,7 @@ const ProfilePage = () => {
                 placeholder="Write something about yourself..."
                 required
                 value={bio}
-                onChange={(e) =>
-                  setBio(e.target.value)
-                }
+                onChange={(e) => setBio(e.target.value)}
                 className="
                   w-full
                   bg-white/5
@@ -376,6 +353,7 @@ const ProfilePage = () => {
             {/* SAVE BUTTON */}
             <button
               type="submit"
+              disabled={loading}
               className="
                 mt-2
                 w-full
@@ -397,11 +375,12 @@ const ProfilePage = () => {
                 transition-all
                 duration-300
                 shadow-[0_0_30px_rgba(59,130,246,0.35)]
+                disabled:opacity-50
+                disabled:pointer-events-none
               "
             >
               <FiSave className="text-xl" />
-
-              Save Profile
+              {loading ? "Saving Changes..." : "Save Profile"}
             </button>
           </form>
         </div>
@@ -421,9 +400,7 @@ const ProfilePage = () => {
             z-50
             px-4
           "
-          onClick={() =>
-            setShowPreview(false)
-          }
+          onClick={() => setShowPreview(false)}
         >
           <div
             className="
@@ -437,20 +414,28 @@ const ProfilePage = () => {
               flex-col
               items-center
             "
-            onClick={(e) =>
-              e.stopPropagation()
-            }
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* IMAGE */}
+            <button
+              onClick={handleCameraClick}
+              className="
+                mb-4
+                px-5
+                py-2
+                rounded-xl
+                bg-cyan-500
+                text-white
+                text-sm
+                hover:bg-cyan-600
+                transition
+              "
+            >
+              Open Camera
+            </button>
+
+            {/* PREVIEW IMAGE */}
             <img
-              src={
-                selectedImg
-                  ? URL.createObjectURL(
-                      selectedImg
-                    )
-                  : authUser?.profilePic ||
-                    default_logo
-              }
+              src={previewImage}
               alt="preview"
               className="
                 w-64 h-64
@@ -461,14 +446,11 @@ const ProfilePage = () => {
               "
             />
 
-            {/* TOP ACTIONS */}
+            {/* ACTIONS */}
             <div className="absolute top-5 left-5 right-5 flex justify-between">
-
-              {/* ADD */}
+              {/* ADD NEW */}
               <button
-                onClick={() =>
-                  fileRef.current.click()
-                }
+                onClick={() => fileRef.current.click()}
                 className="
                   w-12 h-12
                   rounded-full
@@ -497,11 +479,9 @@ const ProfilePage = () => {
               </button>
             </div>
 
-            {/* CLOSE */}
+            {/* CLOSE MODAL */}
             <button
-              onClick={() =>
-                setShowPreview(false)
-              }
+              onClick={() => setShowPreview(false)}
               className="
                 mt-8
                 px-8

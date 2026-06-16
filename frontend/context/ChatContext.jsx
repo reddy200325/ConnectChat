@@ -53,10 +53,26 @@ export const ChatProvider = ({ children }) => {
       );
 
       if (data.success) {
-        // Add new message to existing messages
-        setMessages((prevMessages) => [...prevMessages, data.newMessage]);
-      } else {
-        toast.error(data.message);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          data.newMessage,
+        ]);
+
+        // Move current chat user to top
+        setUser((prevUsers) => {
+          const updatedUsers = [...prevUsers];
+
+          const index = updatedUsers.findIndex(
+            (u) => u._id === selectedUser._id
+          );
+
+          if (index > -1) {
+            const [chatUser] = updatedUsers.splice(index, 1);
+            updatedUsers.unshift(chatUser);
+          }
+
+          return updatedUsers;
+        });
       }
     } catch (error) {
       toast.error(error.message);
@@ -70,28 +86,41 @@ export const ChatProvider = ({ children }) => {
 
     socket.on("newMessage", (newMessage) => {
 
-      // If message belongs to current chat
-      if (selectedUser && newMessage.senderId === selectedUser._id) {
+      // Move sender to top of sidebar
+      setUser((prevUsers) => {
+        const updatedUsers = [...prevUsers];
 
+        const index = updatedUsers.findIndex(
+          (u) => u._id === newMessage.senderId
+        );
+
+        if (index > -1) {
+          const [chatUser] = updatedUsers.splice(index, 1);
+          updatedUsers.unshift(chatUser);
+        }
+
+        return updatedUsers;
+      });
+
+      // Current chat open
+      if (
+        selectedUser &&
+        newMessage.senderId === selectedUser._id
+      ) {
         newMessage.seen = true;
 
-        // Update message list
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
+        setMessages((prevMessages) => [
+          ...prevMessages,
+          newMessage,
+        ]);
 
-        // Mark message as seen
         axios.put(`/api/messages/mark/${newMessage._id}`);
-
       } else {
-
-        // Update unseen message count
         setUnseenMessages((prevUnseenMessages) => ({
           ...prevUnseenMessages,
           [newMessage.senderId]:
-            prevUnseenMessages[newMessage.senderId]
-              ? prevUnseenMessages[newMessage.senderId] + 1
-              : 1,
+            (prevUnseenMessages[newMessage.senderId] || 0) + 1,
         }));
-
       }
     });
   };
