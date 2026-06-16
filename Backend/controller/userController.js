@@ -8,32 +8,26 @@ export const signup = async (req, res) => {
   try {
     let { fullName, email, password, bio } = req.body;
 
-    // Normalize email
-    email = email.trim().toLowerCase();
-
-    // Validate required fields
     if (!fullName || !email || !password || !bio) {
-      return res.json({
+      return res.status(400).json({
         success: false,
         message: "Missing Details",
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
+    email = email.trim().toLowerCase();
 
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.json({
+      return res.status(409).json({
         success: false,
         message: "Account already exists",
       });
     }
 
-    // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new user
     const newUser = await User.create({
       fullName,
       email,
@@ -41,24 +35,20 @@ export const signup = async (req, res) => {
       bio,
     });
 
-    // Generate token
     const token = generateToken(newUser._id);
 
-    // Remove password before sending response
     const userResponse = newUser.toObject();
     delete userResponse.password;
 
-    res.json({
+    return res.status(201).json({
       success: true,
       userData: userResponse,
       token,
       message: "Account created successfully",
     });
-
   } catch (error) {
-    console.log(error.message);
-
-    res.json({
+    console.error("Signup error:", error.message);
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -70,49 +60,45 @@ export const login = async (req, res) => {
   try {
     let { email, password } = req.body;
 
-    email = email.trim().toLowerCase();
-
-    // Find user
-    const userData = await User.findOne({ email });
-
-    if (!userData) {
-      return res.json({
+    if (!email || !password) {
+      return res.status(400).json({
         success: false,
-        message: "User not found",
+        message: "Email and password are required",
       });
     }
 
-    // Compare password
-    const isPasswordCorrect = await bcrypt.compare(
-      password,
-      userData.password
-    );
+    email = email.trim().toLowerCase();
 
-    if (!isPasswordCorrect) {
-      return res.json({
+    const userData = await User.findOne({ email });
+    if (!userData) {
+      return res.status(401).json({
         success: false,
         message: "Invalid credentials",
       });
     }
 
-    // Generate token
+    const isPasswordCorrect = await bcrypt.compare(password, userData.password);
+    if (!isPasswordCorrect) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
     const token = generateToken(userData._id);
 
-    // Remove password before sending response
     const userResponse = userData.toObject();
     delete userResponse.password;
 
-    res.json({
+    return res.status(200).json({
       success: true,
       userData: userResponse,
       token,
       message: "Login successful",
     });
-
   } catch (error) {
-    console.log(error.message);
-
-    res.json({
+    console.error("Login error:", error.message);
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -121,7 +107,10 @@ export const login = async (req, res) => {
 
 // ---------------- CHECK AUTH CONTROLLER ----------------
 export const checkAuth = (req, res) => {
-  res.json({
+  if (req.user) {
+    req.user.password = undefined;
+  }
+  return res.status(200).json({
     success: true,
     user: req.user,
   });
@@ -131,50 +120,33 @@ export const checkAuth = (req, res) => {
 export const updateProfile = async (req, res) => {
   try {
     const { profilePic, bio, fullName } = req.body;
-
     const userId = req.user._id;
 
-    let updatedUser;
+    const updateFields = { bio, fullName };
 
-    // Without image
-    if (!profilePic) {
-      updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          bio,
-          fullName,
-        },
-        { new: true }
-      );
-    } else {
-      // Upload image to cloudinary
+    if (profilePic === null || profilePic === "") {
+      updateFields.profilePic = "";
+    } else if (profilePic) {
       const upload = await cloudinary.uploader.upload(profilePic);
-
-      updatedUser = await User.findByIdAndUpdate(
-        userId,
-        {
-          profilePic: upload.secure_url,
-          bio,
-          fullName,
-        },
-        { new: true }
-      );
+      updateFields.profilePic = upload.secure_url;
     }
 
-    res.json({
+    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, { new: true }).select("-password");
+
+    return res.status(200).json({
       success: true,
       user: updatedUser,
     });
-
   } catch (error) {
-    console.log(error.message);
-
-    res.json({
+    console.error("Update profile error:", error.message);
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
+// ---------------- SEARCH USERS CONTROLLER ----------------
 export const searchUsers = async (req, res) => {
   try {
     const search = req.query.search || "";
@@ -184,11 +156,13 @@ export const searchUsers = async (req, res) => {
         $regex: search,
         $options: "i",
       },
-    });
+    }).select("-password");
 
-    res.json(users);
+    return res.status(200).json(users);
   } catch (error) {
-    res.status(500).json({
+    console.error("Search users error:", error.message);
+    return res.status(500).json({
+      success: false,
       message: error.message,
     });
   }

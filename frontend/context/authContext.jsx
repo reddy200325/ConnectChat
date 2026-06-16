@@ -41,6 +41,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // ---------------- LOGIN / SIGNUP ----------------
   const login = async (state, credentials) => {
     try {
       const { data } = await axios.post(`/api/auth/${state}`, credentials);
@@ -52,14 +53,15 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem("token", data.token);
         connectSocket(user);
         toast.success(data.message);
-      } else {
-        toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      // Extracts exact message from backend error responses (e.g., "Invalid credentials")
+      const errorMessage = error.response?.data?.message || error.message || "Authentication failed";
+      toast.error(errorMessage);
     }
   };
 
+  // ---------------- LOGOUT ----------------
   const logout = () => {
     localStorage.removeItem("token");
     setToken(null);
@@ -70,17 +72,17 @@ export const AuthProvider = ({ children }) => {
     toast.success("Logged out successfully");
   };
 
+  // ---------------- UPDATE PROFILE ----------------
   const updateProfile = async (body) => {
     try {
       const { data } = await axios.put("/api/auth/update-profile", body);
       if (data.success) {
         setAuthUser(data.user || data.userData);
         toast.success("Profile updated successfully");
-      } else {
-        toast.error(data.message);
       }
     } catch (error) {
-      toast.error(error.message);
+      const errorMessage = error.response?.data?.message || error.message || "Failed to update profile";
+      toast.error(errorMessage);
     }
   };
 

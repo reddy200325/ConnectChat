@@ -6,30 +6,35 @@ export const protectRoute = async (req, res, next) => {
     const token = req.headers.token;
 
     if (!token) {
-      return res.json({
+      return res.status(401).json({
         success: false,
-        message: "Token not found",
+        message: "Unauthorized - Token not found",
       });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET environment variable is missing");
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const user = await User.findById(decoded.userId).select("-password");
-
     if (!user) {
-      return res.json({
+      return res.status(401).json({
         success: false,
-        message: "User not found",
+        message: "Unauthorized - User not found",
       });
     }
 
     req.user = user;
-    next();
-
+    return next();
   } catch (error) {
-    res.json({
+    console.error("Auth middleware error:", error.message);
+    
+    // Explicitly targets expired or modified token signatures safely
+    return res.status(401).json({
       success: false,
-      message: error.message,
+      message: error.name === "JsonWebTokenError" ? "Invalid token signature" : error.message,
     });
   }
 };
