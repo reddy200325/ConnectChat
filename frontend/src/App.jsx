@@ -10,8 +10,6 @@ const App = () => {
 
   // Get authenticated user from context
   const { authUser } = useContext(AuthContext);
-  
-
   return (
     <div className="min-h-screen bg-[url('/background.svg')] bg-cover bg-no-repeat bg-center">
       {/* Toast notifications */}

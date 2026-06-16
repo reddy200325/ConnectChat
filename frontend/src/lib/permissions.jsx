@@ -1,29 +1,26 @@
 export const requestLocation = () => {
   if (!navigator.geolocation) {
-    alert("Geolocation is not supported by your browser.");
-    return;
+    return Promise.reject(new Error("Geolocation is not supported by your browser."));
   }
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      console.log("Latitude:", position.coords.latitude);
-      console.log("Longitude:", position.coords.longitude);
-    },
-    (error) => {
-      console.error("Location permission denied:", error);
-    }
-  );
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude
+      }),
+      (error) => reject(error)
+    );
+  });
 };
 
 export const requestCamera = async () => {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-    });
-
-    console.log("Camera access granted");
-    return stream;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Media devices interface is not supported by your browser.");
+    }
+    return await navigator.mediaDevices.getUserMedia({ video: true });
   } catch (error) {
-    console.error("Camera access denied:", error);
+    throw error;
   }
 };

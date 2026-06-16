@@ -2,26 +2,18 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { AuthContext } from "./authContext";
 import toast from "react-hot-toast";
 
-// Create Chat Context
 export const ChatContext = createContext();
 
-// ChatProvider manages chat-related state
 export const ChatProvider = ({ children }) => {
-
-  // Chat states
   const [messages, setMessages] = useState([]);
   const [user, setUser] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [unseenMessages, setUnseenMessages] = useState({});
-
-  // Access socket and axios from AuthContext
   const { socket, axios } = useContext(AuthContext);
 
-  // ---------------- GET USERS (SIDEBAR) ----------------
   const getUsers = async () => {
     try {
       const { data } = await axios.get("/api/messages/users");
-
       if (data.success) {
         setUser(data.users);
         setUnseenMessages(data.unseenMessages);
@@ -31,11 +23,9 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // ---------------- GET MESSAGES ----------------
   const getMessages = async (userId) => {
     try {
       const { data } = await axios.get(`/api/messages/${userId}`);
-
       if (data.success) {
         setMessages(data.messages);
       }
@@ -44,34 +34,20 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // ---------------- SEND MESSAGE ----------------
   const sendMessage = async (messageData) => {
     try {
-      const { data } = await axios.post(
-        `/api/messages/send/${selectedUser._id}`,
-        messageData
-      );
-
+      const { data } = await axios.post(`/api/messages/send/${selectedUser._id}`, messageData);
       if (data.success) {
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          data.newMessage,
-        ]);
+        setMessages((prev) => [...prev, data.newMessage]);
 
-        // Move current chat user to top
         setUser((prevUsers) => {
-          const updatedUsers = [...prevUsers];
-
-          const index = updatedUsers.findIndex(
-            (u) => u._id === selectedUser._id
-          );
-
+          const updated = [...prevUsers];
+          const index = updated.findIndex((u) => u._id === selectedUser._id);
           if (index > -1) {
-            const [chatUser] = updatedUsers.splice(index, 1);
-            updatedUsers.unshift(chatUser);
+            const [chatUser] = updated.splice(index, 1);
+            updated.unshift(chatUser);
           }
-
-          return updatedUsers;
+          return updated;
         });
       }
     } catch (error) {
@@ -79,67 +55,36 @@ export const ChatProvider = ({ children }) => {
     }
   };
 
-  // ---------------- SOCKET SUBSCRIBE ----------------
-  const subscribeToMessages = () => {
-
+  useEffect(() => {
     if (!socket) return;
 
-    socket.on("newMessage", (newMessage) => {
-
-      // Move sender to top of sidebar
+    const handleNewMessage = (newMessage) => {
       setUser((prevUsers) => {
-        const updatedUsers = [...prevUsers];
-
-        const index = updatedUsers.findIndex(
-          (u) => u._id === newMessage.senderId
-        );
-
+        const updated = [...prevUsers];
+        const index = updated.findIndex((u) => u._id === newMessage.senderId);
         if (index > -1) {
-          const [chatUser] = updatedUsers.splice(index, 1);
-          updatedUsers.unshift(chatUser);
+          const [chatUser] = updated.splice(index, 1);
+          updated.unshift(chatUser);
         }
-
-        return updatedUsers;
+        return updated;
       });
 
-      // Current chat open
-      if (
-        selectedUser &&
-        newMessage.senderId === selectedUser._id
-      ) {
+      if (selectedUser && newMessage.senderId === selectedUser._id) {
         newMessage.seen = true;
-
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          newMessage,
-        ]);
-
-        axios.put(`/api/messages/mark/${newMessage._id}`);
+        setMessages((prev) => [...prev, newMessage]);
+        axios.put(`/api/messages/mark/${newMessage._id}`).catch((err) => console.error(err));
       } else {
-        setUnseenMessages((prevUnseenMessages) => ({
-          ...prevUnseenMessages,
-          [newMessage.senderId]:
-            (prevUnseenMessages[newMessage.senderId] || 0) + 1,
+        setUnseenMessages((prev) => ({
+          ...prev,
+          [newMessage.senderId]: (prev[newMessage.senderId] || 0) + 1,
         }));
       }
-    });
-  };
+    };
 
-  // ---------------- SOCKET UNSUBSCRIBE ----------------
-  const unsubscribeFromMessages = () => {
-    if (socket) socket.off("newMessage");
-  };
-
-  // Subscribe / Unsubscribe when socket or selectedUser changes
-  useEffect(() => {
-
-    subscribeToMessages();
-
-    return () => unsubscribeFromMessages();
-
+    socket.on("newMessage", handleNewMessage);
+    return () => socket.off("newMessage", handleNewMessage);
   }, [socket, selectedUser]);
 
-  // Values shared with components
   const value = {
     messages,
     user,
